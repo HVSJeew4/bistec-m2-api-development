@@ -1,0 +1,17 @@
+# Dependencies / build output
+node_modules/
+bin/
+obj/
+dist/
+build/
+coverage/
+
+# Environment (keep the example)
+.env
+.env.*
+!.env.example
+
+# IDE / OS / logs
+.vs/
+*.log
+.DS_Store
