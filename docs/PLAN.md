@@ -1,7 +1,7 @@
 # Month 2 Plan – API Development
 
-> Status: **Draft – waiting for approval.** Items marked **NEEDS MY APPROVAL** and the questions
-> in section 6 must be answered before Part 1 starts.
+> Status: **Approved** (2026-11-01). All proposals and the recommended answers to Q1–Q7 accepted.
+> Ready for Part 1.
 
 ## 1. Summary
 
@@ -28,15 +28,15 @@ schema with indexes and seed data (5 users, 20 posts, 50 comments).
 
 | Choice | Proposal | Reason | Status |
 |---|---|---|---|
-| Express version | Express 5 | Stable since 2024; forwards rejected promises from async handlers to the error middleware, so no `try/catch` wrapper in every controller | **NEEDS MY APPROVAL** |
-| Module system | CommonJS (`require`) | Default for Express examples and Jest works without extra config | **NEEDS MY APPROVAL** |
-| DB access | `pg` (node-postgres) with parameterised SQL inside `src/models/` | No ORM hides the schema, so the Database Design work stays visible; parameters prevent SQL injection | **NEEDS MY APPROVAL** |
-| Migrations / seeds | Numbered `.sql` files in `database/migrations/`, a JS seed in `database/seeds/`, run by two small npm scripts | Matches the rubric folders without adding a migration framework | **NEEDS MY APPROVAL** |
-| Validation + sanitisation | `express-validator` | Validates *and* sanitises (`trim`, `escape`, `normalizeEmail`) – covers "Input sanitization" in the checklist | **NEEDS MY APPROVAL** |
-| Extra security headers | `helmet` + `cors` | Standard Express hardening, one line each | **NEEDS MY APPROVAL** |
-| Swagger UI | `swagger-ui-express` + `yaml` serving `docs/swagger.yaml` at `/api-docs` | The spec file is the deliverable; the UI just renders the same file, so there is one source | **NEEDS MY APPROVAL** |
-| Tests | Jest + `supertest` against a separate `blogflow_test` database | Rubric has a `tests/` folder; tests hit real SQL, so they also prove the schema | **NEEDS MY APPROVAL** |
-| Lint / format | ESLint 9 (flat config) + Prettier | Code Quality criterion; same tooling family as Month 1 | **NEEDS MY APPROVAL** |
+| Express version | Express 5 | Stable since 2024; forwards rejected promises from async handlers to the error middleware, so no `try/catch` wrapper in every controller | Approved |
+| Module system | CommonJS (`require`) | Default for Express examples and Jest works without extra config | Approved |
+| DB access | `pg` (node-postgres) with parameterised SQL inside `src/models/` | No ORM hides the schema, so the Database Design work stays visible; parameters prevent SQL injection | Approved |
+| Migrations / seeds | Numbered `.sql` files in `database/migrations/`, a JS seed in `database/seeds/`, run by two small npm scripts | Matches the rubric folders without adding a migration framework | Approved |
+| Validation + sanitisation | `express-validator` | Validates *and* sanitises (`trim`, `escape`, `normalizeEmail`) – covers "Input sanitization" in the checklist | Approved |
+| Extra security headers | `helmet` + `cors` | Standard Express hardening, one line each | Approved |
+| Swagger UI | `swagger-ui-express` + `yaml` serving `docs/swagger.yaml` at `/api-docs` | The spec file is the deliverable; the UI just renders the same file, so there is one source | Approved |
+| Tests | Jest + `supertest` against a separate `blogflow_test` database | Rubric has a `tests/` folder; tests hit real SQL, so they also prove the schema | Approved |
+| Lint / format | ESLint 9 (flat config) + Prettier | Code Quality criterion; same tooling family as Month 1 | Approved |
 | Config | `dotenv`; `.env.example` with placeholders for `DATABASE_URL`, `TEST_DATABASE_URL`, `JWT_SECRET`, `PORT`, `SEED_USER_PASSWORD` | Security rule: no secrets in tracked files | Required |
 
 ## 3. Submission checklist
@@ -53,7 +53,7 @@ Required files (placed in `submission/`):
 
 Folder structure (rubric "Project Structure"):
 ```
-blog-api/                      # see question Q1 – repo root vs subfolder
+blog-api/                      # = repo root; the zip wraps it in a blog-api/ folder (Q1)
 ├── src/
 │   ├── controllers/
 │   ├── middleware/
@@ -79,7 +79,7 @@ Code requirements:
 - [ ] Users: register (email/password), login returns JWT, view + update profile
 - [ ] Posts: create, read, update, delete; list with pagination and filtering; author association
 - [ ] Comments: create on post, list by post, delete own
-- [ ] **15+ endpoints** working (brief tables list 12 – see Q2)
+- [ ] **15+ endpoints** working – 12 from the brief + 4 extras = 16 (Q2)
 - [ ] Success envelope `{ "success": true, "data": … }`
 - [ ] Error envelope `{ "success": false, "error": { "code", "message", "details" } }`
 - [ ] Pagination envelope `{ "success": true, "data": [...], "pagination": { page, limit, total, totalPages } }`
@@ -133,7 +133,7 @@ Brief time budgets are for the in-session work; offline polish is extra.
   - [ ] `GET /api/posts` (pagination + filters, see Q3), `GET /api/posts/:id`, `POST /api/posts`,
         `PUT /api/posts/:id`, `DELETE /api/posts/:id`
   - [ ] `GET /api/posts/:id/comments`, `POST /api/posts/:id/comments`, `DELETE /api/comments/:id`
-- [ ] Extra endpoints to reach 15+ (proposal in Q2, **NEEDS MY APPROVAL**)
+- [ ] Extra endpoints to reach 15+ (Q2, approved): `GET /api/health`, `GET /api/users/:id`, `GET /api/users/:id/posts`, `PUT /api/comments/:id`
 - [ ] Minimal auth so the endpoint table works (Q5 Option A): `src/utils/password.js`
       (`bcrypt.hash(password, 10)` / `compare`), `src/utils/jwt.js`
       (`jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '24h' })`), `src/middleware/auth.js`
@@ -189,6 +189,11 @@ Works through the brief's Security Checklist and hardens what Part 2 started.
 | Code Quality (10) – clean structure, best practices | Rubric folder structure, `eslint.config.js`, Prettier, layered routes → controllers → models, env config, no secrets | All parts |
 
 ## 6. Risks and questions
+
+**Decisions (2026-11-01):** all answered "as proposed" – Q1 repo root is the project; Q2 the 4 extra
+endpoints listed; Q3 filters `author_id` / `search` / `sort`, drafts visible only to their author;
+Q4 schema hardening accepted; Q5 Option A; Q6 Jest + supertest tests added; Q7 collection variables
+plus an environment file. The original questions are kept below for reference.
 
 **Q1 – Repo root vs `blog-api/` folder.** The rubric tree starts at `blog-api/`. I propose the repo
 root *is* the project (like Month 1), and the zip contains a top-level `blog-api/` folder. OK?
