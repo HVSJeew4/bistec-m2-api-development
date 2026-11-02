@@ -1,0 +1,32 @@
+{
+  "name": "blogflow-api",
+  "version": "1.0.0",
+  "description": "BlogFlow API – RESTful blog backend (Express, PostgreSQL, JWT)",
+  "private": true,
+  "main": "src/app.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "jest --runInBand",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node database/seeds/seed.js",
+    "db:reset": "node scripts/reset-db.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^18.0.9",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.14.0",
+    "jest": "^30.5.2",
+    "prettier": "^3.9.10"
+  }
+}

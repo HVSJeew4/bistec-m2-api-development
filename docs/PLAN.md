@@ -74,7 +74,7 @@ without opening a port), `src/config/` (env loading), `docs/swagger.yaml`, `post
 `submission/`.
 
 Code requirements:
-- [ ] Database: `users`, `posts`, `comments` tables with relationships (FKs), indexes for common
+- [x] Database: `users`, `posts`, `comments` tables with relationships (FKs), indexes for common
       queries, seed data of exactly 5 users, 20 posts, 50 comments
 - [ ] Users: register (email/password), login returns JWT, view + update profile
 - [ ] Posts: create, read, update, delete; list with pagination and filtering; author association
@@ -99,20 +99,20 @@ Brief time budgets are for the in-session work; offline polish is extra.
 
 ### Part 1 – Database Setup (brief: 20 min)
 
-- [ ] `npm init`, install dependencies, ESLint + Prettier, Jest config, npm scripts
-      (`dev`, `start`, `test`, `lint`, `db:migrate`, `db:seed`, `db:reset`) — *Code Quality*
-- [ ] `.env.example` placeholders; `src/config/index.js` reads and checks env vars — *Code Quality, Authentication*
-- [ ] `database/migrations/001_create_users.sql`, `002_create_posts.sql`, `003_create_comments.sql`
+- [x] `npm init`, install dependencies, ESLint + Prettier, Jest config, npm scripts
+      (`test`, `lint`, `format`, `db:migrate`, `db:seed`, `db:reset`; `dev`/`start` moved to Part 2 with `src/server.js`) — *Code Quality*
+- [x] `.env.example` placeholders; `src/config/index.js` reads and checks env vars — *Code Quality, Authentication*
+- [x] `database/migrations/001_create_users.sql`, `002_create_posts.sql`, `003_create_comments.sql`
       using the brief schema plus the hardening in Q4 — *Database Design*
-- [ ] `database/migrations/004_create_indexes.sql`: `posts(author_id)`, `posts(published, created_at DESC)`,
+- [x] `database/migrations/004_create_indexes.sql`: `posts(author_id)`, `posts(published, created_at DESC)`,
       `comments(post_id, created_at)`, `comments(author_id)` (email is already indexed by `UNIQUE`) — *Database Design*
-- [ ] `scripts/migrate.js` – runs migration files in order, records applied ones in a
+- [x] `scripts/migrate.js` – runs migration files in order, records applied ones in a
       `schema_migrations` table — *Database Design*
-- [ ] `database/seeds/seed.js` – 5 users (bcrypt hashes of `SEED_USER_PASSWORD`), 20 posts
+- [x] `database/seeds/seed.js` – 5 users (bcrypt hashes of `SEED_USER_PASSWORD`), 20 posts
       (mix of published/draft), 50 comments, deterministic — *Database Design*
-- [ ] `src/db/pool.js` – one shared `pg.Pool` — *Code Quality*
-- [ ] Test: `tests/db/schema.test.js` – tables, FKs, cascade and indexes exist; seed counts are 5/20/50 — *Database Design*
-- [ ] README: prerequisites, create DBs, `.env`, migrate, seed
+- [x] `src/db/pool.js` – one shared `pg.Pool` — *Code Quality*
+- [x] Test: `tests/db/schema.test.js` – tables, FKs, cascade and indexes exist; seed counts are 5/20/50 — *Database Design*
+- [x] README: prerequisites, create DBs, `.env`, migrate, seed
 - Commit: `feat: add database schema, indexes and seed data`
 
 ### Part 2 – CRUD Endpoints (brief: 50 min)

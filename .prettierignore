@@ -1,0 +1,5 @@
+node_modules/
+coverage/
+submission/
+package-lock.json
+*.md
