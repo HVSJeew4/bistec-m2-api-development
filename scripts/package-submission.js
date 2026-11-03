@@ -37,7 +37,8 @@ function buildSchemaSql(commit) {
 }
 
 function main() {
-  if (git('status', '--porcelain')) {
+  // submission/ itself is the output, so changes there do not count.
+  if (git('status', '--porcelain', '--', '.', ':(exclude)submission')) {
     throw new Error('Uncommitted changes: commit first, so the zip matches the repository.');
   }
   const commit = git('rev-parse', '--short', 'HEAD');
