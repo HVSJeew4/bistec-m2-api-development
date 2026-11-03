@@ -1,2 +1,6 @@
+# Always LF line endings in checkouts and in `git archive`, whatever core.autocrlf says.
+# (Git for Windows defaults to CRLF, which Prettier's lint check rejects.)
+* text=auto eol=lf
+
 # Not part of the project zip built by scripts/package-submission.js (git archive)
 submission/ export-ignore
