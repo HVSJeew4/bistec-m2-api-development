@@ -6,6 +6,11 @@ BlogFlow API is a RESTful backend for a blog platform (Users, Posts, Comments), 
 BISTEC Academy Engineer Track Month 2 challenge. See `docs/CHALLENGE.md` for the brief and
 `docs/PLAN.md` for the plan and progress.
 
+> **Requires Node.js 24.9 or newer** (developed and tested on Node 26). Check with `node -v`.
+> Older versions are not supported – at least `npm test` fails there: the HTML sanitiser's parser
+> is published as ES modules only, and Jest can load those from CommonJS code only on Node ≥ 24.9.
+> Details under "Why Node 24.9+" in Design Decisions.
+
 ## Tech Stack
 
 - Node.js 24.9+ (developed on 26), Express 5, CommonJS modules

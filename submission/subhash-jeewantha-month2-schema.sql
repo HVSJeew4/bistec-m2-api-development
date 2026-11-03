@@ -1,5 +1,5 @@
 -- BlogFlow API – PostgreSQL schema
--- Generated from database/migrations/ at commit 14a3a74 by scripts/package-submission.js.
+-- Generated from database/migrations/ at commit d2d81e3 by scripts/package-submission.js.
 -- Run against an empty database: psql -d blogflow -f <this file>
 -- (In the project, `npm run db:migrate` applies the same files and tracks them.)
 
