@@ -1,0 +1,16 @@
+openapi: 3.0.0
+info:
+  title: BlogFlow API
+  version: 1.0.0
+paths:
+  /api/posts:
+    get:
+      summary: List all posts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
