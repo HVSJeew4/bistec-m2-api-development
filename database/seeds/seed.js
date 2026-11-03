@@ -1,7 +1,6 @@
-const bcrypt = require('bcrypt');
+const { hashPassword } = require('../../src/utils/password');
 const { required } = require('../../src/config');
 
-const SALT_ROUNDS = 10;
 const BASE_DATE = Date.UTC(2026, 0, 5, 9, 0, 0); // fixed, so every run produces the same data
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -83,7 +82,7 @@ async function seed(pool) {
 
     const userIds = [];
     for (const [i, user] of USERS.entries()) {
-      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      const passwordHash = await hashPassword(password);
       const createdAt = new Date(BASE_DATE - (USERS.length - i) * DAY);
       const { rows } = await client.query(
         `INSERT INTO users (email, password_hash, name, bio, created_at, updated_at)

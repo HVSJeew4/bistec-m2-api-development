@@ -21,5 +21,6 @@ module.exports = {
   env,
   isTest,
   databaseUrl,
+  port: Number(process.env.PORT) || 3000,
   required,
 };

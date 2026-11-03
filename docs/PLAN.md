@@ -76,14 +76,14 @@ without opening a port), `src/config/` (env loading), `docs/swagger.yaml`, `post
 Code requirements:
 - [x] Database: `users`, `posts`, `comments` tables with relationships (FKs), indexes for common
       queries, seed data of exactly 5 users, 20 posts, 50 comments
-- [ ] Users: register (email/password), login returns JWT, view + update profile
-- [ ] Posts: create, read, update, delete; list with pagination and filtering; author association
-- [ ] Comments: create on post, list by post, delete own
-- [ ] **15+ endpoints** working – 12 from the brief + 4 extras = 16 (Q2)
-- [ ] Success envelope `{ "success": true, "data": … }`
-- [ ] Error envelope `{ "success": false, "error": { "code", "message", "details" } }`
-- [ ] Pagination envelope `{ "success": true, "data": [...], "pagination": { page, limit, total, totalPages } }`
-- [ ] Input validation on all endpoints
+- [x] Users: register (email/password), login returns JWT, view + update profile
+- [x] Posts: create, read, update, delete; list with pagination and filtering; author association
+- [x] Comments: create on post, list by post, delete own
+- [x] **15+ endpoints** working – 12 from the brief + 4 extras = 16 (Q2)
+- [x] Success envelope `{ "success": true, "data": … }`
+- [x] Error envelope `{ "success": false, "error": { "code", "message", "details" } }`
+- [x] Pagination envelope `{ "success": true, "data": [...], "pagination": { page, limit, total, totalPages } }`
+- [x] Input validation on all endpoints
 - [ ] Rate limiting 100 requests/minute
 - [ ] JWT auth for protected routes; owner-only checks on post/comment update and delete
 - [ ] Security checklist: bcrypt (10 rounds), JWT validation, protected route middleware,
@@ -117,31 +117,31 @@ Brief time budgets are for the in-session work; offline polish is extra.
 
 ### Part 2 – CRUD Endpoints (brief: 50 min)
 
-- [ ] `src/utils/response.js` – `success()`, `paginated()` helpers; `src/utils/AppError.js` +
+- [x] `src/utils/response.js` – `success()`, `paginated()` helpers; `src/utils/AppError.js` +
       `src/middleware/errorHandler.js` + 404 handler producing the error envelope — *Error Handling*
-- [ ] Error codes: `VALIDATION_ERROR` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404,
-      `CONFLICT` 409 (duplicate email), `RATE_LIMITED` 429, `INTERNAL_ERROR` 500 — *Error Handling*
-- [ ] `src/middleware/validate.js` + validators per route (`express-validator`) — *Error Handling, Endpoint Completeness*
-- [ ] `src/utils/pagination.js` – parse `page`/`limit` (defaults 1/10, max 100) — *Endpoint Completeness*
-- [ ] Models: `src/models/userModel.js`, `postModel.js`, `commentModel.js` (parameterised SQL, never
+- [x] Error codes: `VALIDATION_ERROR` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404,
+      `CONFLICT` 409 (duplicate email), `INTERNAL_ERROR` 500, plus `PAYLOAD_TOO_LARGE` 413 and `SERVICE_UNAVAILABLE` 503 (`RATE_LIMITED` 429 comes with Part 3) — *Error Handling*
+- [x] `src/middleware/validate.js` + validators per route (`express-validator`) — *Error Handling, Endpoint Completeness*
+- [x] `src/utils/pagination.js` – parse `page`/`limit` (defaults 1/10, max 100) — *Endpoint Completeness*
+- [x] Models: `src/models/userModel.js`, `postModel.js`, `commentModel.js` (parameterised SQL, never
       return `password_hash`) — *Database Design, Code Quality*
-- [ ] Controllers + routes for auth, users, posts, comments (`src/controllers/*`, `src/routes/*`,
+- [x] Controllers + routes for auth, users, posts, comments (`src/controllers/*`, `src/routes/*`,
       mounted under `/api` in `src/app.js`) — *Endpoint Completeness*
-- [ ] Endpoints from the brief:
-  - [ ] `POST /api/auth/register`, `POST /api/auth/login`
-  - [ ] `GET /api/users/me`, `PUT /api/users/me`
-  - [ ] `GET /api/posts` (pagination + filters, see Q3), `GET /api/posts/:id`, `POST /api/posts`,
+- [x] Endpoints from the brief:
+  - [x] `POST /api/auth/register`, `POST /api/auth/login`
+  - [x] `GET /api/users/me`, `PUT /api/users/me`
+  - [x] `GET /api/posts` (pagination + filters, see Q3), `GET /api/posts/:id`, `POST /api/posts`,
         `PUT /api/posts/:id`, `DELETE /api/posts/:id`
-  - [ ] `GET /api/posts/:id/comments`, `POST /api/posts/:id/comments`, `DELETE /api/comments/:id`
-- [ ] Extra endpoints to reach 15+ (Q2, approved): `GET /api/health`, `GET /api/users/:id`, `GET /api/users/:id/posts`, `PUT /api/comments/:id`
-- [ ] Minimal auth so the endpoint table works (Q5 Option A): `src/utils/password.js`
+  - [x] `GET /api/posts/:id/comments`, `POST /api/posts/:id/comments`, `DELETE /api/comments/:id`
+- [x] Extra endpoints to reach 15+ (Q2, approved): `GET /api/health`, `GET /api/users/:id`, `GET /api/users/:id/posts`, `PUT /api/comments/:id`
+- [x] Minimal auth so the endpoint table works (Q5 Option A): `src/utils/password.js`
       (`bcrypt.hash(password, 10)` / `compare`), `src/utils/jwt.js`
       (`jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '24h' })`), `src/middleware/auth.js`
       (Bearer token → `req.user`), owner check on post/comment update and delete (403) — *Authentication*
-- [ ] Posts and comments responses include the author (`id`, `name`) via JOIN — *Endpoint Completeness*
-- [ ] Tests: `tests/auth.test.js`, `tests/users.test.js`, `tests/posts.test.js`, `tests/comments.test.js`
+- [x] Posts and comments responses include the author (`id`, `name`) via JOIN — *Endpoint Completeness*
+- [x] Tests: `tests/auth.test.js`, `tests/users.test.js`, `tests/posts.test.js`, `tests/comments.test.js`
       – happy path, validation error, 404 for each endpoint — *Endpoint Completeness, Error Handling*
-- Commits: `feat: add response helpers and error handling`, `feat: add user, post and comment endpoints`
+- Commit: `feat: add user, post and comment endpoints` (one commit – the helpers have no tests of their own without the endpoints). Validators live in `src/validators/`; extra test file `tests/app.test.js` covers health, 404 route and 500 handling.
 
 (The order question between Part 2 and Part 3 is Q5.)
 

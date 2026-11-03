@@ -1,4 +1,8 @@
 const pool = require('../../src/db/pool');
+const { seed } = require('../../database/seeds/seed');
+
+// Other test files change data; start from the exact seed so the counts below hold.
+beforeAll(() => seed(pool));
 
 afterAll(() => pool.end());
 
