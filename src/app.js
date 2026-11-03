@@ -20,6 +20,7 @@ app.use(express.json({ limit: '100kb' }));
 app.use(rejectRepeatedQuery);
 
 app.use('/api', routes);
+app.use('/api-docs', require('./routes/docsRoutes'));
 app.use(notFound);
 app.use(errorHandler);
 

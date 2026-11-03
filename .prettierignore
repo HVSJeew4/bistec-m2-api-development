@@ -3,3 +3,4 @@ coverage/
 submission/
 package-lock.json
 *.md
+postman/BlogFlow.postman_collection.json

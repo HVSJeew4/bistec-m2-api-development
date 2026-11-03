@@ -2,15 +2,802 @@ openapi: 3.0.0
 info:
   title: BlogFlow API
   version: 1.0.0
+  description: |
+    RESTful backend for a blog platform: users, posts and comments.
+
+    **Envelopes.** Every response is JSON. Success: `{ "success": true, "data": … }`.
+    Lists add `pagination`. Errors: `{ "success": false, "error": { "code", "message", "details"? } }`.
+
+    **Authentication.** `POST /api/auth/login` returns a JWT (valid 24 hours). Send it as
+    `Authorization: Bearer <token>`. Click **Authorize** above to use it in "Try it out".
+
+    **Drafts.** Posts are drafts until `published: true`. A draft is visible only to its author;
+    for everyone else it behaves as if it did not exist (404).
+
+    **Limits.** 100 requests per minute per client (429 `RATE_LIMITED` above that); request bodies up
+    to 100kb; HTML is stripped from text fields; repeated query parameters are rejected (400).
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+tags:
+  - name: Meta
+    description: API index and health
+  - name: Auth
+    description: Registration and login
+  - name: Users
+    description: Own profile and public author profiles
+  - name: Posts
+    description: Blog posts (drafts are private to their author)
+  - name: Comments
+    description: Comments on posts
+
 paths:
+  /api:
+    get:
+      tags: [Meta]
+      summary: API index
+      description: Name, version and links to the main resources.
+      operationId: getApiIndex
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiIndexResponse'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/health:
+    get:
+      tags: [Meta]
+      summary: Health check
+      description: Reports whether the API is running and the database is reachable.
+      operationId: getHealth
+      responses:
+        '200':
+          description: API and database are up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: Creates an account. The email is trimmed and lower-cased; it must be unique.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and get a JWT
+      description: |
+        Returns a JWT valid for 24 hours plus the user. Unknown email and wrong password give the
+        same 401, so the API does not reveal which emails are registered.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/users/me:
+    get:
+      tags: [Users]
+      summary: Get the current user
+      description: The logged-in user's own profile, including email.
+      operationId: getMe
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Users]
+      summary: Update the current user
+      description: |
+        Partial update of `name` and/or `bio` (at least one). Send `bio: null` or `""` to clear it.
+        Other fields (email, id, …) are ignored.
+      operationId: updateMe
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMeRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get a public user profile
+      description: Public author profile. Does not include the email address.
+      operationId: getUser
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Public profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/users/{id}/posts:
+    get:
+      tags: [Users]
+      summary: List an author's published posts
+      description: Published posts of one user, newest first.
+      operationId: listUserPosts
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostListResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
   /api/posts:
     get:
+      tags: [Posts]
       summary: List all posts
+      description: |
+        Published posts, newest first, with pagination and filters.
+        With `published=false` a logged-in user lists **their own drafts** instead
+        (401 without a token).
+      operationId: listPosts
+      security:
+        - {}
+        - bearerAuth: []
       parameters:
-        - name: page
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: author_id
           in: query
-          schema:
-            type: integer
+          description: Only posts by this user
+          schema: { type: integer, minimum: 1 }
+        - name: search
+          in: query
+          description: Case-insensitive match anywhere in the title (`%` and `_` match literally)
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: sort
+          in: query
+          description: Order by creation date
+          schema: { type: string, enum: [desc, asc], default: desc }
+        - name: published
+          in: query
+          description: '`false` lists your own drafts (requires a token)'
+          schema: { type: string, enum: ['true', 'false'], default: 'true' }
       responses:
-        200:
-          description: Success
+        '200':
+          description: One page of posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostListResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Posts]
+      summary: Create a post
+      description: The logged-in user becomes the author. Posts are drafts unless `published` is `true`.
+      operationId: createPost
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePostRequest'
+      responses:
+        '201':
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/posts/{id}:
+    get:
+      tags: [Posts]
+      summary: Get a single post
+      description: A published post, or the caller's own draft. Someone else's draft returns 404.
+      operationId: getPost
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: The post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Posts]
+      summary: Update a post (owner only)
+      description: |
+        Partial update – send any of `title`, `content`, `published` (at least one).
+        403 for someone else's published post; 404 for someone else's draft.
+      operationId: updatePost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePostRequest'
+      responses:
+        '200':
+          description: Updated post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Posts]
+      summary: Delete a post (owner only)
+      description: Deletes the post and all of its comments.
+      operationId: deletePost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Post deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/posts/{id}/comments:
+    get:
+      tags: [Comments]
+      summary: List comments of a post
+      description: Oldest first. 404 if the post does not exist or is someone else's draft.
+      operationId: listComments
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of comments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentListResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Comments]
+      summary: Comment on a post
+      description: The logged-in user becomes the author. The post must be visible to them.
+      operationId: createComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentRequest'
+      responses:
+        '201':
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/comments/{id}:
+    put:
+      tags: [Comments]
+      summary: Edit a comment (owner only)
+      operationId: updateComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentRequest'
+      responses:
+        '200':
+          description: Updated comment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Comments]
+      summary: Delete a comment (owner only)
+      description: Only the comment's author may delete it – not the author of the post.
+      operationId: deleteComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Comment deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token from `POST /api/auth/login`, valid for 24 hours.
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1, maximum: 2147483647 }
+    Page:
+      name: page
+      in: query
+      description: Page number, starting at 1
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      description: Items per page
+      schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+
+  headers:
+    RateLimit:
+      description: 'Current budget, e.g. `limit=100, remaining=99, reset=60` (IETF draft 7)'
+      schema: { type: string }
+    RateLimitPolicy:
+      description: 'Policy, e.g. `100;w=60` (100 requests per 60 seconds)'
+      schema: { type: string }
+
+  responses:
+    ValidationError:
+      description: Invalid input (`VALIDATION_ERROR`) – details list each failing field
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error:
+              code: VALIDATION_ERROR
+              message: Email is required
+              details:
+                - { field: email, location: body, message: Email is required }
+    Unauthorized:
+      description: Missing, malformed, invalid or expired token, or wrong credentials (`UNAUTHORIZED`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error: { code: UNAUTHORIZED, message: Token has expired }
+    Forbidden:
+      description: Logged in, but not the owner (`FORBIDDEN`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error: { code: FORBIDDEN, message: Only the author can change this post }
+    NotFound:
+      description: The resource does not exist or is not visible to the caller (`NOT_FOUND`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error: { code: NOT_FOUND, message: Post not found }
+    Conflict:
+      description: The email is already registered (`CONFLICT`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error: { code: CONFLICT, message: Email is already registered }
+    PayloadTooLarge:
+      description: Request body over 100kb (`PAYLOAD_TOO_LARGE`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error: { code: PAYLOAD_TOO_LARGE, message: Request body is too large }
+    TooManyRequests:
+      description: More than 100 requests in the last minute (`RATE_LIMITED`)
+      headers:
+        Retry-After:
+          description: Seconds until requests are accepted again
+          schema: { type: integer }
+        RateLimit: { $ref: '#/components/headers/RateLimit' }
+        RateLimit-Policy: { $ref: '#/components/headers/RateLimitPolicy' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error: { code: RATE_LIMITED, message: 'Too many requests, please try again later' }
+    InternalError:
+      description: Unexpected server error (`INTERNAL_ERROR`); no internal details are returned
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error: { code: INTERNAL_ERROR, message: Something went wrong }
+    ServiceUnavailable:
+      description: The database is not reachable (`SERVICE_UNAVAILABLE`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            success: false
+            error: { code: SERVICE_UNAVAILABLE, message: Database is not reachable }
+
+  schemas:
+    # ---- Resources ----
+    User:
+      description: A user as seen by themselves
+      type: object
+      required: [id, email, name, bio, createdAt, updatedAt]
+      properties:
+        id: { type: integer, example: 1 }
+        email: { type: string, format: email, example: amara@blogflow.test }
+        name: { type: string, example: Amara Perera }
+        bio: { type: string, nullable: true, example: Backend developer writing about APIs. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PublicUser:
+      description: A user as seen by others (no email)
+      type: object
+      required: [id, name, bio, createdAt]
+      properties:
+        id: { type: integer, example: 2 }
+        name: { type: string, example: Kasun Silva }
+        bio: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    Author:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: Amara Perera }
+    Post:
+      type: object
+      required: [id, title, content, published, createdAt, updatedAt, author]
+      properties:
+        id: { type: integer, example: 1 }
+        title: { type: string, example: Designing RESTful resources }
+        content: { type: string, example: Resources are nouns… }
+        published: { type: boolean, example: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        author: { $ref: '#/components/schemas/Author' }
+    Comment:
+      type: object
+      required: [id, content, postId, createdAt, author]
+      properties:
+        id: { type: integer, example: 1 }
+        content: { type: string, example: Great explanation! }
+        postId: { type: integer, example: 1 }
+        createdAt: { type: string, format: date-time }
+        author: { $ref: '#/components/schemas/Author' }
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 10 }
+        total: { type: integer, example: 15 }
+        totalPages: { type: integer, example: 2 }
+
+    # ---- Request bodies ----
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email: { type: string, format: email, maxLength: 255, example: new.user@example.com }
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: 8–72 characters (bcrypt uses at most 72 bytes)
+        name: { type: string, minLength: 1, maxLength: 100, example: New User }
+        bio: { type: string, nullable: true, maxLength: 2000 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, example: amara@blogflow.test }
+        password: { type: string, format: password }
+    UpdateMeRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        bio: { type: string, nullable: true, maxLength: 2000 }
+    CreatePostRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 255, example: My first post }
+        content: { type: string, minLength: 1, maxLength: 50000, example: Hello BlogFlow! }
+        published: { type: boolean, default: false }
+    UpdatePostRequest:
+      type: object
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 1, maxLength: 255 }
+        content: { type: string, minLength: 1, maxLength: 50000 }
+        published: { type: boolean }
+    CommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 5000, example: Great post! }
+
+    # ---- Envelopes ----
+    ApiIndexResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          properties:
+            name: { type: string, example: BlogFlow API }
+            version: { type: string, example: 1.0.0 }
+            links:
+              type: object
+              additionalProperties: { type: string }
+              example:
+                health: /api/health
+                auth: /api/auth
+                users: /api/users
+                posts: /api/posts
+                comments: /api/comments
+                docs: /api-docs
+    HealthResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          properties:
+            status: { type: string, example: ok }
+            database: { type: string, example: up }
+    UserResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: '#/components/schemas/User' }
+    PublicUserResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: '#/components/schemas/PublicUser' }
+    LoginResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [token, user]
+          properties:
+            token: { type: string, description: 'JWT, valid for 24 hours' }
+            user: { $ref: '#/components/schemas/User' }
+    PostResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: '#/components/schemas/Post' }
+    PostListResponse:
+      type: object
+      required: [success, data, pagination]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Post' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    CommentResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: '#/components/schemas/Comment' }
+    CommentListResponse:
+      type: object
+      required: [success, data, pagination]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Comment' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    DeletedResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [id]
+          properties:
+            id: { type: integer, example: 1 }
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, enum: [false] }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - NOT_FOUND
+                - CONFLICT
+                - PAYLOAD_TOO_LARGE
+                - RATE_LIMITED
+                - INTERNAL_ERROR
+                - SERVICE_UNAVAILABLE
+            message: { type: string }
+            details:
+              type: array
+              description: Present for VALIDATION_ERROR – one entry per invalid field
+              items:
+                type: object
+                properties:
+                  field: { type: string, nullable: true, example: email }
+                  location: { type: string, enum: [body, query, params], example: body }
+                  message: { type: string, example: Email is required }

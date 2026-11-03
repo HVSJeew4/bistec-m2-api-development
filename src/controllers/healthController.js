@@ -14,6 +14,7 @@ function index(_req, res) {
       users: '/api/users',
       posts: '/api/posts',
       comments: '/api/comments',
+      docs: '/api-docs',
     },
   });
 }

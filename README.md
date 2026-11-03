@@ -73,6 +73,38 @@ npm start       # plain start
 
 The API listens on `http://localhost:3000/api`. Quick check: `curl http://localhost:3000/api/health`.
 
+## API Documentation
+
+- **Swagger UI:** <http://localhost:3000/api-docs> (server must be running). Click **Authorize**
+  and paste a token from `POST /api/auth/login` to use "Try it out" on protected endpoints.
+- **OpenAPI spec:** [`docs/swagger.yaml`](docs/swagger.yaml) (OpenAPI 3.0.0), also served at
+  <http://localhost:3000/api-docs/swagger.yaml>. `tests/docs.test.js` fails if a route is missing
+  from the spec, if the spec lists a route that does not exist, or if the spec is invalid.
+
+### Postman
+
+- **Collection:** [`postman/BlogFlow.postman_collection.json`](postman/BlogFlow.postman_collection.json)
+  – 28 requests in folders Meta / Auth / Users / Posts / Comments / Cleanup, with a test script on
+  every request (88 assertions) and a collection pre-request script for the auth token.
+- **Environment:** [`postman/BlogFlow.postman_environment.json`](postman/BlogFlow.postman_environment.json)
+  – `baseUrl` and `token`. Optional: the collection also defines both as collection variables, so
+  the collection file works on its own.
+
+In Postman: **Import** both files, select the "BlogFlow – Local" environment, then run the
+collection with the **Collection Runner** in order. "Register" creates a fresh user with a random
+password for each run (no credentials are stored in the files); "Login" saves `{{token}}`; the
+collection pre-request script logs in again whenever the token is missing or about to expire.
+
+From the command line (server running, uses Newman via `npx`):
+
+```bash
+npm run test:postman
+```
+
+The collection is generated from [`postman/build-collection.js`](postman/build-collection.js) –
+edit that file, then `npm run postman:build`. Each run adds one user to the database; use
+`npm run db:reset` to start clean.
+
 ## API Overview
 
 All responses use one envelope: `{ "success": true, "data": … }`, lists add
@@ -125,13 +157,24 @@ Also: `helmet` security headers, CORS, 100kb body limit. Every item is tested in
 ## Running Tests
 
 ```bash
-npm test       # Jest + supertest; rebuilds blogflow_test, each file re-seeds before it runs
-npm run lint   # ESLint + Prettier check
-npm run format # apply Prettier formatting
+npm test              # Jest + supertest; rebuilds blogflow_test, each file re-seeds before it runs
+npm run test:postman  # Postman collection via Newman, against the running server (npm run dev)
+npm run lint          # ESLint + Prettier check
+npm run format        # apply Prettier formatting
 ```
 
 There is no build step (plain JavaScript, no transpiling). `npm test` runs Jest with Node's
 `--experimental-vm-modules` flag – see "Why Node 24.9+" below.
+
+## Submission Files
+
+```bash
+npm run submission   # needs a clean working tree (commit first)
+```
+
+Builds the 5 deliverables in `submission/`: `subhash-jeewantha-month2-api-project.zip` (the
+committed project via `git archive`, inside a `blog-api/` folder – no `node_modules`, no `.env`),
+`-schema.sql` (all migrations in order), `-postman.json`, `-swagger.yaml` and `-readme.md`.
 
 ## Project Structure
 
@@ -139,13 +182,18 @@ There is no build step (plain JavaScript, no transpiling). `npm test` runs Jest 
 database/
   migrations/   numbered .sql files, applied in order (tracked in schema_migrations)
   seeds/        seed.js – deterministic demo data
-scripts/        migrate.js, reset-db.js
+docs/
+  swagger.yaml  OpenAPI 3.0.0 spec (served at /api-docs)
+  CHALLENGE.md, RUBRIC.md, PLAN.md   brief, rubric and plan
+postman/        collection (+ the script that generates it) and environment
+scripts/        migrate.js, reset-db.js, package-submission.js
+submission/     the 5 deliverable files (built by npm run submission)
 src/
   app.js        builds the Express app (no listening – used by tests)
   server.js     starts the HTTP server
   config/       loads .env and checks required variables
   db/pool.js    the shared PostgreSQL connection pool
-  routes/       URL → middleware chain → controller
+  routes/       URL → middleware chain → controller; docsRoutes serves Swagger UI
   validators/   express-validator rules per resource
   controllers/  request handling; no SQL
   models/       all SQL, parameterised
@@ -156,7 +204,7 @@ tests/
   helpers.js      supertest client, tokens for seed users, error assertions
   db/             schema and seed tests
   unit/           pure functions (HTML stripping, config checks)
-  *.test.js       one file per resource, plus security and rate limiting
+  *.test.js       one file per resource, plus security, rate limiting and docs
 ```
 
 Request flow: `helmet → cors → rate limit → JSON body → repeated-query check → route →
@@ -223,13 +271,26 @@ Errors from any step go to `middleware/errorHandler.js`.
   only. Node 22+ loads them from CommonJS natively, but Jest's own module loader can only do so on
   Node ≥ 24.9 with `--experimental-vm-modules` (it needs `vm.SourceTextModule`). Pinning an
   18-month-old `sanitize-html` or a weaker stripper was rejected for a security library.
+- **One spec, checked against the code.** `docs/swagger.yaml` is hand-written (readable, reviewable)
+  and is the file that is served, submitted and tested. `tests/docs.test.js` reads the real
+  Express routers and checks both directions (no undocumented route, no documented route that
+  does not exist), plus: protected routes document `bearerAuth` + 401, validated routes 400,
+  every route 429 and 500.
+- **Postman collection as code.** `postman/build-collection.js` generates the JSON; test scripts
+  stay readable and shared checks (status, envelope, pagination) are written once. The run is a
+  scenario: a fresh user per run, so it never depends on seed passwords and never stores one.
+- **Newman via `npx`, not a dependency.** Newman 6's dependency tree has several high/critical
+  `npm audit` findings; it is only a local test runner, so it is not installed into the project.
+- **Submission zip from `git archive`.** Only committed files go in – `node_modules`, `.env`,
+  coverage and other ignored files cannot leak into the deliverable.
 
 ## Challenge Coverage
 
 - [x] Part 1 – Database setup (schema, relationships, indexes, seed data)
 - [x] Part 2 – CRUD endpoints (16 endpoints, validation, error envelope, pagination, basic JWT auth)
 - [x] Part 3 – Authentication & security (full security checklist, rate limiting, HTML stripping)
-- [ ] Part 4 – Documentation & testing
+- [x] Part 4 – Documentation & testing (OpenAPI spec + Swagger UI, Postman collection run by
+      Newman, submission packaging)
 
 ## Known Limitations
 
@@ -243,5 +304,9 @@ Errors from any step go to `middleware/errorHandler.js`.
   password guessing is not implemented.
 - Text that looks like an HTML tag is removed even if it was meant as text, e.g. `a<b>c` becomes
   `ac` (`a < b` with spaces is kept).
+- The docs test checks that every route is documented with the right status codes, but not that
+  each response body matches its schema field by field; the Postman tests and Jest tests check
+  the response shapes instead.
+- Each Postman run registers one extra user in the main database (`npm run db:reset` cleans up).
 - JWTs cannot be revoked before they expire (no logout / token blacklist); deleting a user does
   invalidate their tokens, because the auth middleware checks that the user still exists.

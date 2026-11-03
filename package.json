@@ -15,7 +15,10 @@
     "format": "prettier --write .",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node database/seeds/seed.js",
-    "db:reset": "node scripts/reset-db.js"
+    "db:reset": "node scripts/reset-db.js",
+    "postman:build": "node postman/build-collection.js",
+    "test:postman": "npx --yes newman@6.2.3 run postman/BlogFlow.postman_collection.json -e postman/BlogFlow.postman_environment.json",
+    "submission": "node scripts/package-submission.js"
   },
   "license": "ISC",
   "dependencies": {
