@@ -3,6 +3,7 @@ const health = require('../controllers/healthController');
 
 const router = Router();
 
+router.get('/', health.index);
 router.get('/health', health.check);
 router.use('/auth', require('./authRoutes'));
 router.use('/users', require('./userRoutes'));

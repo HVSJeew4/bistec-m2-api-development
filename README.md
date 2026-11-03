@@ -82,6 +82,7 @@ Protected routes need `Authorization: Bearer <token>` from `POST /api/auth/login
 
 | Method | Endpoint                  | Auth     | Notes                                                    |
 | ------ | ------------------------- | -------- | -------------------------------------------------------- |
+| GET    | `/api`                    | –        | API name, version and links to the main resources        |
 | GET    | `/api/health`             | –        | API + database status                                    |
 | POST   | `/api/auth/register`      | –        | `email`, `password` (8–72), `name`, optional `bio`       |
 | POST   | `/api/auth/login`         | –        | Returns `{ token, user }`; token valid 24h               |

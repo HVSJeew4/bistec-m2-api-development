@@ -2,6 +2,32 @@ const { api, pool, closeDb, expectError } = require('./helpers');
 
 afterAll(closeDb);
 
+describe('GET /api', () => {
+  it('describes the API and links to its main resources', async () => {
+    const res = await api().get('/api');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      success: true,
+      data: {
+        name: 'BlogFlow API',
+        version: '1.0.0',
+        links: {
+          health: '/api/health',
+          auth: '/api/auth',
+          users: '/api/users',
+          posts: '/api/posts',
+          comments: '/api/comments',
+        },
+      },
+    });
+  });
+
+  it('still answers 404 for unknown paths below /api', async () => {
+    expectError(await api().get('/api/unknown'), 404, 'NOT_FOUND');
+  });
+});
+
 describe('GET /api/health', () => {
   it('reports the API and database as up', async () => {
     const res = await api().get('/api/health');
