@@ -4,8 +4,10 @@ const userModel = require('../models/userModel');
 
 // Reads "Authorization: Bearer <token>", verifies it and loads the user it belongs to.
 async function authenticate(req) {
-  const [scheme, token] = (req.headers.authorization || '').split(' ');
-  if (scheme !== 'Bearer' || !token) {
+  const parts = (req.headers.authorization || '').trim().split(/\s+/);
+  const [scheme, token] = parts;
+  // Exactly two parts; HTTP scheme names are case-insensitive, so "bearer" is accepted too.
+  if (parts.length !== 2 || scheme.toLowerCase() !== 'bearer') {
     throw AppError.unauthorized('Missing or malformed Authorization header');
   }
 

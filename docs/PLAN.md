@@ -84,9 +84,9 @@ Code requirements:
 - [x] Error envelope `{ "success": false, "error": { "code", "message", "details" } }`
 - [x] Pagination envelope `{ "success": true, "data": [...], "pagination": { page, limit, total, totalPages } }`
 - [x] Input validation on all endpoints
-- [ ] Rate limiting 100 requests/minute
-- [ ] JWT auth for protected routes; owner-only checks on post/comment update and delete
-- [ ] Security checklist: bcrypt (10 rounds), JWT validation, protected route middleware,
+- [x] Rate limiting 100 requests/minute
+- [x] JWT auth for protected routes; owner-only checks on post/comment update and delete
+- [x] Security checklist: bcrypt (10 rounds), JWT validation, protected route middleware,
       owner-only check, rate limiting (express-rate-limit), input sanitisation
 - [ ] Swagger: `openapi: 3.0.0`, `info.title: BlogFlow API`, `version: 1.0.0`, every endpoint
 - [ ] Postman: all endpoints grouped by resource, variables for base URL and token, test scripts
@@ -148,19 +148,19 @@ Brief time budgets are for the in-session work; offline polish is extra.
 ### Part 3 – Authentication & Security (brief: 30 min)
 
 Works through the brief's Security Checklist and hardens what Part 2 started.
-- [ ] Checklist: bcrypt 10 rounds confirmed by test (hash prefix `$2b$10$`) — *Authentication*
-- [ ] `src/middleware/auth.js` hardened: 401 `UNAUTHORIZED` for missing header, wrong scheme,
+- [x] Checklist: bcrypt 10 rounds confirmed by test (hash prefix `$2b$10$`) — *Authentication*
+- [x] `src/middleware/auth.js` hardened: 401 `UNAUTHORIZED` for missing header, wrong scheme,
       malformed, bad signature, expired token, and token of a deleted user — *Authentication, Error Handling*
-- [ ] Owner-only check covered for every owner route (post PUT/DELETE, comment DELETE/PUT) — *Authentication*
-- [ ] Startup fails fast if `JWT_SECRET` is missing or shorter than 32 characters — *Authentication*
-- [ ] `src/middleware/rateLimiter.js` – `express-rate-limit`, 100 req / 60 s, JSON error envelope
+- [x] Owner-only check covered for every owner route (post PUT/DELETE, comment DELETE/PUT) — *Authentication*
+- [x] Startup fails fast if `JWT_SECRET` is missing or shorter than 32 characters — *Authentication*
+- [x] `src/middleware/rateLimiter.js` – `express-rate-limit`, 100 req / 60 s, JSON error envelope
       with `RATE_LIMITED`, standard `RateLimit-*` headers — *Authentication, Error Handling*
-- [ ] `helmet()`, `cors()`, `express.json({ limit: '100kb' })` in `app.js` — *Code Quality*
-- [ ] Sanitisation: `trim`/`escape` on text fields, `normalizeEmail`, strip unknown body fields — *Code Quality*
-- [ ] Login returns the same `UNAUTHORIZED` message for unknown email and wrong password — *Authentication*
-- [ ] Tests: `tests/security.test.js` – no token, bad token, expired token, non-owner update/delete
+- [x] `helmet()`, `cors()`, `express.json({ limit: '100kb' })` in `app.js` — *Code Quality*
+- [x] Sanitisation: HTML stripped from text fields with `sanitize-html` (decision 2026-11-03: strip, not `escape`), `trim`, emails lower-cased (not `normalizeEmail`, see README), unknown body fields dropped, repeated query parameters → 400 — *Code Quality*
+- [x] Login returns the same `UNAUTHORIZED` message for unknown email and wrong password — *Authentication*
+- [x] Tests: `tests/security.test.js` – no token, bad token, expired token, non-owner update/delete
       → 403, password stored as bcrypt hash, 101st request → 429 — *Authentication*
-- Commit: `feat: harden auth, add rate limiting and input sanitisation`
+- Commits: `test: failing test for security hardening` (TDD red), then `feat: harden auth, add rate limiting and input sanitisation`. Runtime raised to Node ≥ 24.9 (decision 2026-11-03) so Jest can load the ESM-only `sanitize-html` parser.
 
 ### Part 4 – Documentation & Testing (brief: 20 min)
 

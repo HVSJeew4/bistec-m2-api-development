@@ -1,4 +1,5 @@
 const { body } = require('express-validator');
+const { stripHtml } = require('../utils/sanitize');
 const { idParam, atLeastOne, text } = require('./common');
 const { paginationRules } = require('../utils/pagination');
 
@@ -11,7 +12,7 @@ const updateMe = [
     .custom((value) => value === null || typeof value === 'string')
     .withMessage('bio must be a string or null')
     .bail()
-    .customSanitizer((value) => (value === null ? null : value.trim() || null))
+    .customSanitizer((value) => (value === null ? null : stripHtml(value).trim() || null))
     .custom((value) => value === null || value.length <= 2000)
     .withMessage('bio must be at most 2000 characters'),
 ];

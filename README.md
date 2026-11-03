@@ -8,7 +8,8 @@ BISTEC Academy Engineer Track Month 2 challenge. See `docs/CHALLENGE.md` for the
 
 ## Tech Stack
 
-- Node.js 22, Express 5, CommonJS modules
+- Node.js 24.9+ (developed on 26), Express 5, CommonJS modules
+- Security: `helmet`, `cors`, `express-rate-limit`, `sanitize-html` (+ `entities`)
 - PostgreSQL (tested on 18) via `pg` (node-postgres) with plain parameterised SQL
 - `bcrypt` (10 rounds) for passwords, `jsonwebtoken` (HS256, 24h) for auth
 - `express-validator` for input validation
@@ -18,7 +19,7 @@ BISTEC Academy Engineer Track Month 2 challenge. See `docs/CHALLENGE.md` for the
 
 ### Prerequisites
 
-- Node.js 22+ and npm
+- Node.js **24.9 or newer** and npm (see "Why Node 24.9+" under Design Decisions)
 - A running PostgreSQL server and a database user allowed to create databases
 
 ### 1. Install
@@ -103,7 +104,22 @@ Protected routes need `Authorization: Bearer <token>` from `POST /api/auth/login
 creation date), `published=false` (logged in only: lists your own drafts).
 
 Error codes: `VALIDATION_ERROR` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404,
-`CONFLICT` 409, `PAYLOAD_TOO_LARGE` 413, `INTERNAL_ERROR` 500, `SERVICE_UNAVAILABLE` 503.
+`CONFLICT` 409, `PAYLOAD_TOO_LARGE` 413, `RATE_LIMITED` 429, `INTERNAL_ERROR` 500,
+`SERVICE_UNAVAILABLE` 503.
+
+### Security
+
+| Brief checklist item          | Implementation                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| Password hashing (bcrypt, 10) | `src/utils/password.js`; hashes start with `$2b$10$`                           |
+| JWT token validation          | `src/utils/jwt.js` – HS256 pinned, 24h expiry, secret ≥ 32 chars or no startup |
+| Protected route middleware    | `src/middleware/auth.js` – `requireAuth` / `optionalAuth`                      |
+| Owner-only operations         | `findOwnPost` / `findOwnComment` in the controllers → 403                      |
+| Rate limiting                 | `src/middleware/rateLimiter.js` – 100 requests/min per IP → 429                |
+| Input sanitisation            | `src/utils/sanitize.js` (HTML stripped), validators, repeated query params     |
+
+Also: `helmet` security headers, CORS, 100kb body limit. Every item is tested in
+`tests/security.test.js`, `tests/rateLimit.test.js` and `tests/unit/`.
 
 ## Running Tests
 
@@ -113,7 +129,8 @@ npm run lint   # ESLint + Prettier check
 npm run format # apply Prettier formatting
 ```
 
-There is no build step (plain JavaScript, no transpiling).
+There is no build step (plain JavaScript, no transpiling). `npm test` runs Jest with Node's
+`--experimental-vm-modules` flag – see "Why Node 24.9+" below.
 
 ## Project Structure
 
@@ -131,16 +148,18 @@ src/
   validators/   express-validator rules per resource
   controllers/  request handling; no SQL
   models/       all SQL, parameterised
-  middleware/   auth (JWT), validate, error handler
-  utils/        AppError, response envelopes, pagination, password, jwt, sql helpers
+  middleware/   auth (JWT), validate, error handler, rate limiter, repeated-query check
+  utils/        AppError, response envelopes, pagination, password, jwt, sql, sanitize
 tests/
   globalSetup.js  resets the test database before Jest runs
   helpers.js      supertest client, tokens for seed users, error assertions
   db/             schema and seed tests
-  *.test.js       one file per resource
+  unit/           pure functions (HTML stripping, config checks)
+  *.test.js       one file per resource, plus security and rate limiting
 ```
 
-Request flow: `route → (requireAuth | optionalAuth) → validate(rules) → controller → model → SQL`.
+Request flow: `helmet → cors → rate limit → JSON body → repeated-query check → route →
+(requireAuth | optionalAuth) → validate(rules) → controller → model → SQL`.
 Errors from any step go to `middleware/errorHandler.js`.
 
 ## Design Decisions
@@ -183,12 +202,32 @@ Errors from any step go to `middleware/errorHandler.js`.
 - **Email is trimmed and lower-cased**, not `normalizeEmail`-ed (that would also strip dots from
   Gmail addresses and change what the user typed).
 - **`DELETE` returns 200 with `{ id }`**, not 204, so every response keeps the JSON envelope.
+- **HTML is stripped, not escaped.** Text fields (title, content, comment, name, bio) go through
+  `stripHtml`: tags and the contents of `<script>`/`<style>` are removed, plain text is kept
+  exactly as typed. `escape()` was rejected because it changes the data (`Q&A` → `Q&amp;A`),
+  breaks search, and shows `&amp;` in any client that escapes on output (which clients should).
+  `sanitize-html` parses like a browser; its output is decoded back to plain text with `entities`,
+  repeated until stable so entity-encoded tags (`&lt;script&gt;`) are removed too.
+- **Repeated query parameters are rejected.** `?page=1&page=2` made Express produce an array,
+  which crashed the SQL query with a 500; now any repeated parameter is a 400.
+- **Rate limit before everything else** (after security headers), so even rejected or 404
+  requests count. `RateLimit` / `RateLimit-Policy` headers (IETF draft 7) show the budget;
+  a 429 adds `Retry-After` and uses the normal error envelope.
+- **CORS open to all origins.** Auth is a Bearer header, not a cookie, so another website cannot
+  act for a user without already holding their token.
+- **JWT hardening.** Algorithm pinned to HS256 (an `alg: none` token is refused), secret must be
+  ≥ 32 characters or the server will not start, the scheme name is case-insensitive as HTTP
+  requires, and a token for a deleted user is refused.
+- **Why Node 24.9+.** `sanitize-html`'s parser (`htmlparser2` 12) and `entities` 9 are ES-module
+  only. Node 22+ loads them from CommonJS natively, but Jest's own module loader can only do so on
+  Node ≥ 24.9 with `--experimental-vm-modules` (it needs `vm.SourceTextModule`). Pinning an
+  18-month-old `sanitize-html` or a weaker stripper was rejected for a security library.
 
 ## Challenge Coverage
 
 - [x] Part 1 – Database setup (schema, relationships, indexes, seed data)
 - [x] Part 2 – CRUD endpoints (16 endpoints, validation, error envelope, pagination, basic JWT auth)
-- [ ] Part 3 – Authentication & security
+- [x] Part 3 – Authentication & security (full security checklist, rate limiting, HTML stripping)
 - [ ] Part 4 – Documentation & testing
 
 ## Known Limitations
@@ -196,6 +235,12 @@ Errors from any step go to `middleware/errorHandler.js`.
 - `comments` has no `updated_at` column (the brief's schema has none), so an edited comment does
   not record when it was edited.
 - Email and password cannot be changed through `PUT /api/users/me` (only `name` and `bio`).
-- No rate limiting, security headers or HTML sanitisation yet – added in Part 3.
+- Rate-limit counters are kept in memory: they reset on restart and are not shared between
+  several server processes (a shared store such as Redis would be needed). Behind a reverse proxy,
+  Express's `trust proxy` must be set, or all clients share the proxy's IP.
+- Login has the same 100/min limit as everything else; a stricter per-account limit against
+  password guessing is not implemented.
+- Text that looks like an HTML tag is removed even if it was meant as text, e.g. `a<b>c` becomes
+  `ac` (`a < b` with spaces is kept).
 - JWTs cannot be revoked before they expire (no logout / token blacklist); deleting a user does
   invalidate their tokens, because the auth middleware checks that the user still exists.

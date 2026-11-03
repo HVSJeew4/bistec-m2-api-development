@@ -1,5 +1,6 @@
 const { body } = require('express-validator');
 const { text } = require('./common');
+const { stripHtml } = require('../utils/sanitize');
 
 // Lower-casing (rather than express-validator's normalizeEmail) keeps the address exactly as typed
 // apart from case; normalizeEmail would also strip dots and "+tags" from Gmail addresses.
@@ -34,6 +35,7 @@ const register = [
     .isString()
     .withMessage('bio must be a string')
     .bail()
+    .customSanitizer(stripHtml)
     .trim()
     .isLength({ max: 2000 })
     .withMessage('bio must be at most 2000 characters'),

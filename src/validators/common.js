@@ -1,4 +1,5 @@
 const { body, oneOf, param } = require('express-validator');
+const { stripHtml } = require('../utils/sanitize');
 
 const MAX_INT = 2147483647; // PostgreSQL INTEGER / SERIAL upper bound
 
@@ -17,7 +18,8 @@ const atLeastOne = (fields) =>
     { message: `Provide at least one of: ${fields.join(', ')}` },
   );
 
-// Required (or optional) trimmed, non-empty string with a maximum length.
+// Required (or optional) non-empty plain-text string with a maximum length.
+// HTML is stripped *before* the empty check, so "<script>…</script>" alone counts as empty.
 const text = (field, max, { optional = false } = {}) => {
   const chain = body(field);
   if (optional) chain.optional();
@@ -28,6 +30,7 @@ const text = (field, max, { optional = false } = {}) => {
     .isString()
     .withMessage(`${field} must be a string`)
     .bail()
+    .customSanitizer(stripHtml)
     .trim()
     .notEmpty()
     .withMessage(`${field} must not be empty`)
