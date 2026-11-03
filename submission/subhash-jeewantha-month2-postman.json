@@ -1,0 +1,998 @@
+{
+  "info": {
+    "name": "BlogFlow API",
+    "description": "All BlogFlow API endpoints, grouped by resource, with test scripts.\n\nStart the API (`npm run dev`), then run the whole collection in order (Collection Runner or `npm run test:postman`). \"Register\" creates a fresh user for each run; the collection pre-request script logs in automatically whenever {{token}} is missing or about to expire.\n\nChange {{baseUrl}} if the API is not on http://localhost:3000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const setVar = (k, v) => (pm.environment.has(k) ? pm.environment : pm.collectionVariables).set(k, v);",
+          "const token = pm.variables.get('token');",
+          "const email = pm.variables.get('userEmail');",
+          "const password = pm.variables.get('userPassword');",
+          "const cryptoJs = require('crypto-js'); // bundled with Postman (the global CryptoJS is deprecated)",
+          "",
+          "// Reads \"exp\" from the JWT payload (base64url) without verifying it – that is the server's job.",
+          "function expiresSoon(jwt) {",
+          "  try {",
+          "    const part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+          "    const payload = JSON.parse(cryptoJs.enc.Base64.parse(part).toString(cryptoJs.enc.Utf8));",
+          "    return payload.exp * 1000 < Date.now() + 60 * 1000;",
+          "  } catch (e) {",
+          "    return true;",
+          "  }",
+          "}",
+          "",
+          "if (email && password && (!token || expiresSoon(token))) {",
+          "  pm.sendRequest(",
+          "    {",
+          "      url: pm.variables.replaceIn('{{baseUrl}}/auth/login'),",
+          "      method: 'POST',",
+          "      header: { 'Content-Type': 'application/json' },",
+          "      body: { mode: 'raw', raw: JSON.stringify({ email, password }) },",
+          "    },",
+          "    (err, res) => {",
+          "      if (!err && res.code === 200) setVar('token', res.json().data.token);",
+          "    },",
+          "  );",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('response uses the JSON envelope', () => {",
+          "  pm.response.to.be.json;",
+          "  const body = pm.response.json();",
+          "  pm.expect(body.success).to.be.a('boolean');",
+          "  if (body.success) pm.expect(body).to.have.property('data');",
+          "  else pm.expect(body.error).to.include.keys('code', 'message');",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "userEmail",
+      "value": ""
+    },
+    {
+      "key": "userPassword",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "postId",
+      "value": ""
+    },
+    {
+      "key": "commentId",
+      "value": ""
+    },
+    {
+      "key": "otherPostId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Meta",
+      "description": "API index and health check.",
+      "item": [
+        {
+          "name": "API index",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('links to the main resources', () => pm.expect(pm.response.json().data.links).to.include.keys('posts', 'docs'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('database is up', () => pm.expect(pm.response.json().data).to.eql({ status: 'ok', database: 'up' }));",
+                  "pm.test('sends rate-limit headers', () => pm.response.to.have.header('RateLimit-Policy', '100;w=60'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Registers a fresh user for this run and logs in. Run this folder first.",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setVar = (k, v) => (pm.environment.has(k) ? pm.environment : pm.collectionVariables).set(k, v);",
+                  "setVar('userEmail', 'postman-' + Date.now() + '@blogflow.test');",
+                  "setVar('userPassword', pm.variables.replaceIn('{{$randomPassword}}') + 'Aa1!');",
+                  "setVar('token', '');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setVar = (k, v) => (pm.environment.has(k) ? pm.environment : pm.collectionVariables).set(k, v);",
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const user = pm.response.json().data;",
+                  "pm.test('returns the new user without the password', () => {",
+                  "  pm.expect(user.email).to.eql(pm.variables.get('userEmail'));",
+                  "  pm.expect(user).to.not.have.property('password');",
+                  "  pm.expect(user).to.not.have.property('passwordHash');",
+                  "});",
+                  "setVar('userId', user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\",\n  \"name\": \"Postman Tester\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Register – duplicate email (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('error code is CONFLICT', () => pm.expect(pm.response.json().error.code).to.eql('CONFLICT'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"another-password\",\n  \"name\": \"Copy\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Register – invalid input (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));",
+                  "pm.test('lists every invalid field', () => {",
+                  "  const fields = pm.response.json().error.details.map((d) => d.field);",
+                  "  pm.expect(fields).to.include.members(['email', 'password', 'name']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Login – wrong password (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('error code is UNAUTHORIZED', () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"wrong-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setVar = (k, v) => (pm.environment.has(k) ? pm.environment : pm.collectionVariables).set(k, v);",
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const { token, user } = pm.response.json().data;",
+                  "pm.test('returns a JWT and the user', () => {",
+                  "  pm.expect(token.split('.')).to.have.lengthOf(3);",
+                  "  pm.expect(user.id).to.eql(Number(pm.variables.get('userId')));",
+                  "});",
+                  "setVar('token', token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Own profile (token required) and public author profiles.",
+      "item": [
+        {
+          "name": "Get current user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('is the logged-in user', () => pm.expect(pm.response.json().data.email).to.eql(pm.variables.get('userEmail')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/me"
+          }
+        },
+        {
+          "name": "Get current user – no token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('error code is UNAUTHORIZED', () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/me",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Update current user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('HTML is stripped from the bio', () => pm.expect(pm.response.json().data.bio).to.eql('Written by Postman'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Written by <b>Postman</b><script>alert(1)</script>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get public profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('does not expose the email', () => pm.expect(pm.response.json().data).to.not.have.property('email'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/{{userId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Get an author's posts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('has pagination', () => {",
+                  "  const { pagination } = pm.response.json();",
+                  "  pm.expect(pagination).to.have.all.keys('page', 'limit', 'total', 'totalPages');",
+                  "  pm.expect(pagination.totalPages).to.eql(Math.ceil(pagination.total / pagination.limit));",
+                  "});",
+                  "pm.test('only that author, only published', () => {",
+                  "  pm.response.json().data.forEach((p) => {",
+                  "    pm.expect(p.author.id).to.eql(1);",
+                  "    pm.expect(p.published).to.be.true;",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/1/posts?limit=2",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Posts",
+      "description": "Listing with pagination/filters, CRUD and owner checks.",
+      "item": [
+        {
+          "name": "List posts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setVar = (k, v) => (pm.environment.has(k) ? pm.environment : pm.collectionVariables).set(k, v);",
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('has pagination', () => {",
+                  "  const { pagination } = pm.response.json();",
+                  "  pm.expect(pagination).to.have.all.keys('page', 'limit', 'total', 'totalPages');",
+                  "  pm.expect(pagination.totalPages).to.eql(Math.ceil(pagination.total / pagination.limit));",
+                  "});",
+                  "const posts = pm.response.json().data;",
+                  "pm.test('at most 5 published posts, each with its author', () => {",
+                  "  pm.expect(posts.length).to.be.at.most(5);",
+                  "  posts.forEach((p) => {",
+                  "    pm.expect(p.published).to.be.true;",
+                  "    pm.expect(p.author).to.have.all.keys('id', 'name');",
+                  "  });",
+                  "});",
+                  "// Someone else's post, for the 403 test below.",
+                  "const other = posts.find((p) => p.author.id !== Number(pm.variables.get('userId')));",
+                  "if (other) setVar('otherPostId', other.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/posts?page=1&limit=5",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "List posts – search and sort",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('every title matches the search', () => {",
+                  "  pm.response.json().data.forEach((p) => pm.expect(p.title.toLowerCase()).to.include('jwt'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/posts?search=jwt&sort=asc",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "List posts – invalid limit (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/posts?limit=500",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Create post – missing fields (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('error code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/posts",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setVar = (k, v) => (pm.environment.has(k) ? pm.environment : pm.collectionVariables).set(k, v);",
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const post = pm.response.json().data;",
+                  "pm.test('belongs to the logged-in user', () => pm.expect(post.author.id).to.eql(Number(pm.variables.get('userId'))));",
+                  "setVar('postId', post.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/posts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hello from Postman\",\n  \"content\": \"Created by the Postman collection.\",\n  \"published\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('is the created post', () => pm.expect(pm.response.json().data.title).to.eql('Hello from Postman'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/posts/{{postId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Update post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('title changed, content kept', () => {",
+                  "  const post = pm.response.json().data;",
+                  "  pm.expect(post.title).to.eql('Updated by Postman');",
+                  "  pm.expect(post.content).to.eql('Created by the Postman collection.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/posts/{{postId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated by Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update someone else's post (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', () => pm.response.to.have.status(403));",
+                  "pm.test('error code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/posts/{{otherPostId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Not mine\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get post – not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('error code is NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/posts/999999",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "description": "Comments on the post created above.",
+      "item": [
+        {
+          "name": "Create comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setVar = (k, v) => (pm.environment.has(k) ? pm.environment : pm.collectionVariables).set(k, v);",
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const comment = pm.response.json().data;",
+                  "pm.test('is linked to the post', () => pm.expect(comment.postId).to.eql(Number(pm.variables.get('postId'))));",
+                  "setVar('commentId', comment.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/posts/{{postId}}/comments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"First comment from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List comments of post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('has pagination', () => {",
+                  "  const { pagination } = pm.response.json();",
+                  "  pm.expect(pagination).to.have.all.keys('page', 'limit', 'total', 'totalPages');",
+                  "  pm.expect(pagination.totalPages).to.eql(Math.ceil(pagination.total / pagination.limit));",
+                  "});",
+                  "pm.test('contains the new comment', () => {",
+                  "  const ids = pm.response.json().data.map((c) => c.id);",
+                  "  pm.expect(ids).to.include(Number(pm.variables.get('commentId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/posts/{{postId}}/comments",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Update comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('content changed', () => pm.expect(pm.response.json().data.content).to.eql('Edited comment'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/comments/{{commentId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Edited comment\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns the deleted id', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('commentId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/comments/{{commentId}}"
+          }
+        },
+        {
+          "name": "Delete comment again (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('error code is NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/comments/{{commentId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "description": "Deletes the post created by this run.",
+      "item": [
+        {
+          "name": "Delete post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/posts/{{postId}}"
+          }
+        },
+        {
+          "name": "Get deleted post (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('error code is NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/posts/{{postId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
