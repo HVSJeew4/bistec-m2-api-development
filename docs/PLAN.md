@@ -1,7 +1,6 @@
 # Month 2 Plan – API Development
 
-> Status: **Approved** (2026-11-01). All proposals and the recommended answers to Q1–Q7 accepted.
-> Ready for Part 1.
+> Status: **Complete** – all 4 parts built and verified; deliverables in `submission/` (2026-11-03). Approved 2026-11-01.
 
 ## 1. Summary
 
@@ -45,11 +44,11 @@ Naming convention: `[participant-name]-month2-[deliverable]` (e.g. `john-doe-mon
 Participant name (same as Month 1): `subhash-jeewantha`.
 
 Required files (placed in `submission/`):
-- [ ] `subhash-jeewantha-month2-api-project.zip` – complete Node.js project (no `node_modules`, no `.env`)
-- [ ] `subhash-jeewantha-month2-schema.sql` – database schema
-- [ ] `subhash-jeewantha-month2-postman.json` – Postman collection
-- [ ] `subhash-jeewantha-month2-swagger.yaml` – OpenAPI spec
-- [ ] `subhash-jeewantha-month2-readme.md` – setup instructions
+- [x] `subhash-jeewantha-month2-api-project.zip` – complete Node.js project (no `node_modules`, no `.env`)
+- [x] `subhash-jeewantha-month2-schema.sql` – database schema
+- [x] `subhash-jeewantha-month2-postman.json` – Postman collection
+- [x] `subhash-jeewantha-month2-swagger.yaml` – OpenAPI spec
+- [x] `subhash-jeewantha-month2-readme.md` – setup instructions
 
 Folder structure (rubric "Project Structure"):
 ```
